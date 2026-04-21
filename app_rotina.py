@@ -4,48 +4,61 @@ import sqlite3
 import plotly.express as px
 from datetime import datetime, date
 
-# --- 1. CONFIGURAÇÃO DE ELITE ---
-st.set_page_config(page_title="PIERRE Pro Executive", layout="wide", page_icon="⚜️")
+# 1. SETUP
+st.set_page_config(page_title="PIERRE", layout="wide")
+db = "p3.db" # Novo banco para evitar conflitos
 
-# --- 2. DEFINIÇÃO DE OPÇÕES (Prevenção de Erros de Sintaxe) ---
-OPCOES_CAT = ["Operacional", "Gestão/Reunião", "Desenvolvimento", "Pessoal"]
-OPCOES_PRIO = ["1. 🔥 Urgente & Importante", "2. 📅 Importante", "3. ⚡ Urgente/Delegar", "4. ☕ Baixo Impacto"]
-OPCOES_STATUS = ["Backlog", "Andamento", "Concluído"]
+# 2. BANCO
+con = sqlite3.connect(db, check_same_thread=False)
+cur = con.cursor()
+cur.execute("CREATE TABLE IF NOT EXISTS t (id INTEGER PRIMARY KEY, n TEXT, c TEXT, p TEXT, s TEXT, d TEXT, v TEXT, r INT)")
+con.commit()
 
-# --- 3. ESTILO CSS CUSTOMIZADO (LUXO) ---
-st.markdown("""
-    <style>
-    .stButton>button { border-radius: 6px; border: 1px solid #D4AF37; color: #E2C044; transition: 0.3s; }
-    .stButton>button:hover { background-color: #D4AF37; color: #121212; transform: translateY(-2px); }
-    div[data-testid="stExpander"] { border-left: 5px solid #D4AF37; background-color: #1A1C23; border-radius: 8px; }
-    .stMetric { background-color: #1A1C23; padding: 15px; border-radius: 10px; border: 1px solid #333; }
-    </style>
-""", unsafe_allow_html=True)
+# 3. ESTILO
+st.markdown("<style>.stButton>button{width:100%; border:1px solid #D4AF37;}</style>", unsafe_allow_html=True)
 
-# --- 4. BANCO DE DADOS (V2 para evitar OperationalError) ---
-conn = sqlite3.connect('pierre_v2.db', check_same_thread=False)
-c = conn.cursor()
-c.execute('''CREATE TABLE IF NOT EXISTS tarefas 
-             (id INTEGER PRIMARY KEY AUTOINCREMENT, 
-              tarefa TEXT, categoria TEXT, prioridade TEXT, 
-              status TEXT, data_criacao TEXT, data_vencimento TEXT, rotina BOOLEAN)''')
-conn.commit()
+# 4. TABS
+st.title("⚜️ PIERRE Executive")
+t1, t2, t3, t4 = st.tabs(["Add", "Work", "View", "Admin"])
 
-def carregar_dados():
-    return pd.read_sql_query("SELECT * FROM tarefas", conn)
+with t1:
+    with st.form("f"):
+        nome = st.text_input("Tarefa")
+        cat = st.selectbox("Cat", ["Op", "Gest", "Dev", "Pes"])
+        prio = st.selectbox("Prio", ["1.Urg", "2.Imp", "3.Del", "4.Low"])
+        venc = st.date_input("Prazo", date.today())
+        if st.form_submit_button("Ok"):
+            if nome:
+                hoje = datetime.now().strftime("%Y-%m-%d")
+                cur.execute("INSERT INTO t (n,c,p,s,d,v,r) VALUES (?,?,?,?,?,?,?)",
+                            (nome, cat, prio, "Back", hoje, venc.strftime("%Y-%m-%d"), 0))
+                con.commit()
+                st.rerun()
 
-# --- 5. CABEÇALHO ---
-st.markdown("<h1 style='text-align: center; color: #D4AF37;'>⚜️ Sistema PIERRE Executive</h1>", unsafe_allow_html=True)
-st.caption("<p style='text-align: center;'>Gestão de Alta Performance para Rotinas de Trabalho</p>", unsafe_allow_html=True)
-
-tabs = st.tabs(["📥 1. Coleta", "🚀 2. Execução", "🗺️ 3. Estratégia", "📊 4. Revisão", "⚙️ 5. Gestão"])
-
-# --- ABA 1: COLETA (P & I) ---
-with tabs[0]:
-    st.subheader("Nova Entrada de Dados")
-    with st.form("form_pierre", clear_on_submit=True):
-        tarefa_input = st.text_input("Descrição da Pendência")
-        c1, c2 = st.columns(2)
+with t2:
+    df = pd.read_sql("SELECT * FROM t", con)
+    if not df.empty:
+        c1, c2, c3 = st.columns(3)
         with c1:
-            cat_input = st.selectbox("Categoria", OPCOES_CAT)
-            venc_input = st.date_input("
+            st.write("📋 Back")
+            for _, r in df[df['s'] == 'Back'].iterrows():
+                if st.button(f"Go: {r['n']}", key=f"s{r['id']}"):
+                    cur.execute("UPDATE t SET s='Run' WHERE id=?", (r['id'],))
+                    con.commit()
+                    st.rerun()
+        with c2:
+            st.write("⏳ Run")
+            for _, r in df[df['s'] == 'Run'].iterrows():
+                if st.button(f"End: {r['n']}", key=f"e{r['id']}"):
+                    cur.execute("UPDATE t SET s='Done' WHERE id=?", (r['id'],))
+                    con.commit()
+                    st.rerun()
+        with c3:
+            st.write("✅ Done")
+            for _, r in df[df['status' if 'status' in df else 's'] == 'Done'].iterrows():
+                st.write(f"~{r['n']}~")
+
+with t3:
+    df3 = pd.read_sql("SELECT * FROM t", con)
+    if not df3.empty:
+        st.plotly_chart(px.pie(df3, names='c', hole=.4), use_container_width=True)
