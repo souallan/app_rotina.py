@@ -4,25 +4,26 @@ import sqlite3
 import plotly.express as px
 from datetime import datetime, date
 
-# --- 1. CONFIGURAÇÃO ---
-st.set_page_config(page_title="PIERRE Pro", layout="wide", page_icon="⚜️")
+# --- 1. CONFIGURAÇÃO DE ELITE ---
+st.set_page_config(page_title="PIERRE Pro Executive", layout="wide", page_icon="⚜️")
 
-# --- 2. LISTAS DE OPÇÕES (Movidas para evitar erros de quebra de linha) ---
-OPCOES_CAT = ["Operacional", "Gestão", "Estudo", "Pessoal"]
-OPCOES_PRIO = ["1. Urgente", "2. Importante", "3. Delegar", "4. Baixo Impacto"]
+# --- 2. DEFINIÇÃO DE OPÇÕES (Prevenção de Erros de Sintaxe) ---
+OPCOES_CAT = ["Operacional", "Gestão/Reunião", "Desenvolvimento", "Pessoal"]
+OPCOES_PRIO = ["1. 🔥 Urgente & Importante", "2. 📅 Importante", "3. ⚡ Urgente/Delegar", "4. ☕ Baixo Impacto"]
 OPCOES_STATUS = ["Backlog", "Andamento", "Concluído"]
 
-# --- 3. ESTILO CSS ---
+# --- 3. ESTILO CSS CUSTOMIZADO (LUXO) ---
 st.markdown("""
     <style>
-    .stButton>button { border-radius: 6px; border: 1px solid #D4AF37; color: #E2C044; }
-    .stButton>button:hover { background-color: #D4AF37; color: #121212; }
-    div[data-testid="stExpander"] { border-left: 4px solid #D4AF37; background-color: #1A1C23; }
+    .stButton>button { border-radius: 6px; border: 1px solid #D4AF37; color: #E2C044; transition: 0.3s; }
+    .stButton>button:hover { background-color: #D4AF37; color: #121212; transform: translateY(-2px); }
+    div[data-testid="stExpander"] { border-left: 5px solid #D4AF37; background-color: #1A1C23; border-radius: 8px; }
+    .stMetric { background-color: #1A1C23; padding: 15px; border-radius: 10px; border: 1px solid #333; }
     </style>
 """, unsafe_allow_html=True)
 
-# --- 4. BANCO DE DADOS ---
-conn = sqlite3.connect('rotina_trabalho.db', check_same_thread=False)
+# --- 4. BANCO DE DADOS (V2 para evitar OperationalError) ---
+conn = sqlite3.connect('pierre_v2.db', check_same_thread=False)
 c = conn.cursor()
 c.execute('''CREATE TABLE IF NOT EXISTS tarefas 
              (id INTEGER PRIMARY KEY AUTOINCREMENT, 
@@ -30,29 +31,21 @@ c.execute('''CREATE TABLE IF NOT EXISTS tarefas
               status TEXT, data_criacao TEXT, data_vencimento TEXT, rotina BOOLEAN)''')
 conn.commit()
 
-def carregar():
+def carregar_dados():
     return pd.read_sql_query("SELECT * FROM tarefas", conn)
 
-# --- 5. INTERFACE ---
-st.markdown("<h1 style='text-align: center; color: #D4AF37;'>⚜️ PIERRE Executive</h1>", unsafe_allow_html=True)
+# --- 5. CABEÇALHO ---
+st.markdown("<h1 style='text-align: center; color: #D4AF37;'>⚜️ Sistema PIERRE Executive</h1>", unsafe_allow_html=True)
+st.caption("<p style='text-align: center;'>Gestão de Alta Performance para Rotinas de Trabalho</p>", unsafe_allow_html=True)
 
-t1, t2, t3, t4, t5 = st.tabs(["📥 Coleta", "🚀 Execução", "🗺️ Estratégia", "📊 Revisão", "⚙️ Ajustes"])
+tabs = st.tabs(["📥 1. Coleta", "🚀 2. Execução", "🗺️ 3. Estratégia", "📊 4. Revisão", "⚙️ 5. Gestão"])
 
-with t1:
-    with st.form("f1", clear_on_submit=True):
-        nome = st.text_input("O que precisa ser feito?")
+# --- ABA 1: COLETA (P & I) ---
+with tabs[0]:
+    st.subheader("Nova Entrada de Dados")
+    with st.form("form_pierre", clear_on_submit=True):
+        tarefa_input = st.text_input("Descrição da Pendência")
         c1, c2 = st.columns(2)
-        cat = c1.selectbox("Categoria", OPCOES_CAT)
-        venc = c1.date_input("Prazo", date.today())
-        prio = c2.selectbox("Prioridade", OPCOES_PRIO)
-        rot = c2.checkbox("É uma Rotina?")
-        if st.form_submit_button("Registrar"):
-            if nome:
-                hoje = datetime.now().strftime("%Y-%m-%d")
-                c.execute("INSERT INTO tarefas (tarefa, categoria, prioridade, status, data_criacao, data_vencimento, rotina) VALUES (?, ?, ?, ?, ?, ?, ?)",
-                          (nome, cat, prio, "Backlog", hoje, venc.strftime("%Y-%m-%d"), rot))
-                conn.commit()
-                st.rerun()
-
-with t2:
-    df = carregar()
+        with c1:
+            cat_input = st.selectbox("Categoria", OPCOES_CAT)
+            venc_input = st.date_input("
